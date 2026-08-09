@@ -1,0 +1,7 @@
+.env
+bin/
+*.log
+.claude/
+CLAUDE.md
+SETUP.md
+PLAN.md

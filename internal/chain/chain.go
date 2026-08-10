@@ -40,7 +40,12 @@ func canonicalize(payload json.RawMessage) ([]byte, error) {
 	return json.Marshal(v)
 }
 
+// now is truncated to microsecond precision: Postgres timestamptz only
+// stores microseconds, so hashing at full nanosecond precision would make
+// Verify fail on entries that round-tripped through storage even though
+// nothing was tampered with.
 func Append(prev *Entry, payload json.RawMessage, now time.Time) (*Entry, error) {
+	now = now.Truncate(time.Microsecond)
 	prevHash := GenesisPrevHash
 	if prev != nil {
 		prevHash = prev.Hash

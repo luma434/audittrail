@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// Entry is a single link in the hash chain. Hash is computed over
+// PrevHash, the canonicalized Payload, and Timestamp.
 type Entry struct {
 	Payload   json.RawMessage `json:"payload"`
 	Timestamp time.Time       `json:"timestamp"`
@@ -16,8 +18,11 @@ type Entry struct {
 	Hash      string          `json:"hash"`
 }
 
+// GenesisPrevHash is the PrevHash of the first entry in a chain.
 const GenesisPrevHash = ""
 
+// ErrChainBroken is returned by Verify when an entry's hash or prev_hash
+// link does not match, indicating tampering or a missing/reordered entry.
 var ErrChainBroken = errors.New("chain broken")
 
 func computeHash(prevHash string, payload json.RawMessage, timestamp time.Time) (string, error) {
@@ -40,6 +45,9 @@ func canonicalize(payload json.RawMessage) ([]byte, error) {
 	return json.Marshal(v)
 }
 
+// Append creates a new Entry linked to prev (or the genesis entry if prev
+// is nil), computing its hash from prev's hash, the payload, and now.
+//
 // now is truncated to microsecond precision: Postgres timestamptz only
 // stores microseconds, so hashing at full nanosecond precision would make
 // Verify fail on entries that round-tripped through storage even though
@@ -57,6 +65,10 @@ func Append(prev *Entry, payload json.RawMessage, now time.Time) (*Entry, error)
 	return &Entry{Payload: payload, Timestamp: now, PrevHash: prevHash, Hash: hash}, nil
 }
 
+// Verify walks entries in order, checking each one's prev_hash link and
+// hash. It fails closed: on the first mismatch it returns that entry's
+// index and ErrChainBroken. A nil or empty slice is valid and returns
+// (-1, nil).
 func Verify(entries []Entry) (brokenAt int, err error) {
 	prevHash := GenesisPrevHash
 	for i, e := range entries {

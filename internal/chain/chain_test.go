@@ -63,3 +63,42 @@ func TestVerify_DetectsTamperedPayload(t *testing.T) {
 		t.Fatalf("expected break at index 1, got %d", brokenAt)
 	}
 }
+
+func TestVerify_DetectsTamperedHash(t *testing.T) {
+	now := time.Now()
+	e1, _ := Append(nil, mustPayload(t, map[string]string{"event": "genesis"}), now)
+	e2, _ := Append(e1, mustPayload(t, map[string]string{"event": "second"}), now.Add(time.Second))
+
+	tampered := *e2
+	tampered.Hash = "0000000000000000000000000000000000000000000000000000000000000000"
+
+	brokenAt, err := Verify([]Entry{*e1, tampered})
+	if err == nil {
+		t.Fatal("expected hash tampering to be detected")
+	}
+	if brokenAt != 1 {
+		t.Fatalf("expected break at index 1, got %d", brokenAt)
+	}
+}
+
+func TestVerify_DetectsBrokenPrevHash(t *testing.T) {
+	now := time.Now()
+	e1, _ := Append(nil, mustPayload(t, map[string]string{"event": "genesis"}), now)
+	e2, _ := Append(e1, mustPayload(t, map[string]string{"event": "second"}), now.Add(time.Second))
+	e3, _ := Append(e2, mustPayload(t, map[string]string{"event": "third"}), now.Add(2*time.Second))
+
+	brokenAt, err := Verify([]Entry{*e1, *e3})
+	if err == nil {
+		t.Fatal("expected deleted entry (broken prev_hash link) to be detected")
+	}
+	if brokenAt != 1 {
+		t.Fatalf("expected break at index 1, got %d", brokenAt)
+	}
+}
+
+func TestAppend_InvalidPayload(t *testing.T) {
+	_, err := Append(nil, json.RawMessage(`{not valid json`), time.Now())
+	if err == nil {
+		t.Fatal("expected invalid JSON payload to be rejected")
+	}
+}

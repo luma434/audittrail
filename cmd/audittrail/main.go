@@ -30,6 +30,10 @@ func main() {
 	if addr == "" {
 		addr = ":8080"
 	}
+	allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
+	if allowedOrigin == "" {
+		allowedOrigin = "http://localhost:3000"
+	}
 
 	pg, err := storage.NewPostgres(ctx, dsn)
 	if err != nil {
@@ -40,7 +44,7 @@ func main() {
 	svc := chain.NewService(pg)
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: newMux(svc, apiKey),
+		Handler: newMux(svc, apiKey, allowedOrigin),
 	}
 
 	go func() {
